@@ -1,19 +1,23 @@
-/*
- * DiscordSRV - A Minecraft to Discord and back link plugin
- * Copyright (C) 2016-2020 Austin "Scarsz" Shapiro
- *
+/*-
+ * LICENSE
+ * DiscordSRV
+ * -------------
+ * Copyright (C) 2016 - 2021 Austin "Scarsz" Shapiro
+ * -------------
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
+ * END
  */
 
 package github.scarsz.discordsrv.listeners;
@@ -45,7 +49,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 public class DiscordChatListener extends ListenerAdapter {
 
@@ -83,15 +87,15 @@ public class DiscordChatListener extends ListenerAdapter {
         // enforce required account linking
         if (DiscordSRV.config().getBoolean("DiscordChatChannelRequireLinkedAccount")) {
             if (DiscordSRV.getPlugin().getAccountLinkManager() == null) {
-                event.getAuthor().openPrivateChannel().queue(privateChannel -> privateChannel.sendMessage(LangUtil.InternalMessage.FAILED_TO_CHECK_LINKED_ACCOUNT.toString()).queue());
+                event.getAuthor().openPrivateChannel().queue(privateChannel -> privateChannel.sendMessage(LangUtil.Message.FAILED_TO_CHECK_LINKED_ACCOUNT.toString()).queue());
                 DiscordUtil.deleteMessage(event.getMessage());
                 return;
             }
 
             boolean hasLinkedAccount = DiscordSRV.getPlugin().getAccountLinkManager().getUuid(event.getAuthor().getId()) != null;
             if (!hasLinkedAccount && !event.getAuthor().isBot()) {
-                event.getAuthor().openPrivateChannel().queue(privateChannel -> privateChannel.sendMessage(LangUtil.InternalMessage.LINKED_ACCOUNT_REQUIRED.toString()
-                        .replace("{message}", event.getMessage().getContentRaw())
+                event.getAuthor().openPrivateChannel().queue(privateChannel -> privateChannel.sendMessage(LangUtil.Message.LINKED_ACCOUNT_REQUIRED.toString()
+                        .replace("%message%", event.getMessage().getContentRaw())
                 ).queue());
                 DiscordUtil.deleteMessage(event.getMessage());
                 return;
@@ -116,19 +120,7 @@ public class DiscordChatListener extends ListenerAdapter {
             return;
         }
 
-        List<Role> selectedRoles;
-        List<String> discordRolesSelection = DiscordSRV.config().getStringList("DiscordChatChannelRolesSelection");
-        // if we have a whitelist in the config
-        if (DiscordSRV.config().getBoolean("DiscordChatChannelRolesSelectionAsWhitelist")) {
-            selectedRoles = event.getMember().getRoles().stream()
-                               .filter(role -> discordRolesSelection.contains(DiscordUtil.getRoleName(role)))
-                               .collect(Collectors.toList());
-        } else { // if we have a blacklist in the settings
-            selectedRoles = event.getMember().getRoles().stream()
-                               .filter(role -> !discordRolesSelection.contains(DiscordUtil.getRoleName(role)))
-                               .collect(Collectors.toList());
-        }
-        selectedRoles.removeIf(role -> StringUtils.isBlank(role.getName()));
+        List<Role> selectedRoles = DiscordSRV.getPlugin().getSelectedRoles(event.getMember());
 
         // if there are attachments send them all as one message
         if (!event.getMessage().getAttachments().isEmpty()) {
@@ -156,11 +148,11 @@ public class DiscordChatListener extends ListenerAdapter {
             if (StringUtils.isBlank(event.getMessage().getContentRaw())) return;
         }
 
-        // if message contains a string that's suppose to make the entire message not be sent to discord, return
-        for (String phrase : DiscordSRV.config().getStringList("DiscordChatChannelBlockedPhrases")) {
-            if (StringUtils.isEmpty(phrase)) continue; // don't want to block every message from sending
-            if (event.getMessage().getContentRaw().contains(phrase)) {
-                DiscordSRV.debug("Received message from Discord that contained a block phrase (" + phrase + "), message send aborted");
+        // apply regex filters
+        for (Map.Entry<Pattern, String> entry : DiscordSRV.getPlugin().getDiscordRegexes().entrySet()) {
+            message = entry.getKey().matcher(message).replaceAll(entry.getValue());
+            if (StringUtils.isBlank(message)) {
+                DiscordSRV.debug("Not processing Discord message because it was cleared by a filter: " + entry.getKey().pattern());
                 return;
             }
         }
@@ -230,15 +222,13 @@ public class DiscordChatListener extends ListenerAdapter {
                     chatFormat = PlaceholderUtil.replacePlaceholders(chatFormat);
                     nameFormat = PlaceholderUtil.replacePlaceholders(nameFormat);
 
-                    String regex = DiscordSRV.config().getString("DiscordChatChannelRegex");
-                    if (StringUtils.isNotBlank(regex)) {
-                        String replacement = DiscordSRV.config().getString("DiscordChatChannelRegexReplacement");
-                        chatFormat = chatFormat.replaceAll(regex, replacement);
-                        nameFormat = nameFormat.replaceAll(regex, replacement);
+                    // apply regex filters
+                    for (Map.Entry<Pattern, String> entry : DiscordSRV.getPlugin().getDiscordRegexes().entrySet()) {
+                        chatFormat = entry.getKey().matcher(chatFormat).replaceAll(entry.getValue());
+                        nameFormat = entry.getKey().matcher(nameFormat).replaceAll(entry.getValue());
                     }
 
                     nameFormat = DiscordUtil.strip(nameFormat);
-
                     dynmapHook.broadcastMessageToDynmap(nameFormat, chatFormat);
         });
 
@@ -279,6 +269,8 @@ public class DiscordChatListener extends ListenerAdapter {
             playerListMessage += "\n```\n";
 
             StringJoiner players = new StringJoiner(LangUtil.Message.PLAYER_LIST_COMMAND_ALL_PLAYERS_SEPARATOR.toString());
+
+            List<String> playerList = new LinkedList<>();
             for (Player player : PlayerUtil.getOnlinePlayers(true)) {
 
                 String userPrimaryGroup = VaultHook.getPrimaryGroup(player);
@@ -295,7 +287,11 @@ public class DiscordChatListener extends ListenerAdapter {
 
                 // use PlaceholderAPI if available
                 playerFormat = PlaceholderUtil.replacePlaceholdersToDiscord(playerFormat, player);
+                playerList.add(playerFormat);
+            }
 
+            playerList.sort(Comparator.naturalOrder());
+            for (String playerFormat : playerList) {
                 players.add(playerFormat);
             }
             playerListMessage += players.toString();
@@ -310,9 +306,7 @@ public class DiscordChatListener extends ListenerAdapter {
             new Thread(() -> {
                 try {
                     Thread.sleep(DiscordSRV.config().getInt("DiscordChatChannelListCommandExpiration") * 1000L);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+                } catch (InterruptedException ignored) {}
                 DiscordUtil.deleteMessage(event.getMessage());
             }).start();
         }

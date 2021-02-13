@@ -20,18 +20,23 @@ NicknameSynchronizationFormat: "%displayname%"
 #                                               {"MC_GROUP_NAME": "DISCORD_ROLE_ID"} is the format to go by when adding more group/role pairs
 #                                               to get your Discord guild's role IDs, run "/discord debug" and look at the first section
 # GroupRoleSynchronizationMinecraftIsAuthoritative: whether or not minecraft group changes override discord role changes
+# GroupRoleSynchronizationOneWay: whether or not to synchronise only one way, the way it is synchronised depends on the value
+#                                 of GroupRoleSynchronizationMinecraftIsAuthoritative.
 # GroupRoleSynchronizationEnableDenyPermission: kas discordsrv.sync.deny.<group> õigused on lubatud või mitte
 # GroupRoleSynchronizationPrimaryGroupOnly: if true, only the parent group of the player will be considered for synchronization,
 #                                           vastasel korral loendab grupi sünkroonimine kõik rühmad, milles mängija asub, sealhulgas vanemrühmad
 # GroupRoleSynchronizationOnLink: saate uuesti sünkroonida, kui mängija lingib
 # GroupRoleSynchronizationCycleTime: amount of minutes between repeatedly triggering synchronization for all online players
+# GroupRoleSynchronizationCycleCompletely: kas taimeri sünkroonimine peaks sünkroonima kõik Discordi serverite liikmed
 #
 GroupRoleSynchronizationGroupsAndRolesToSync: {"trusted": "000000000000000000", "vip": "000000000000000000"}
 GroupRoleSynchronizationMinecraftIsAuthoritative: true
+GroupRoleSynchronizationOneWay: false
 GroupRoleSynchronizationEnableDenyPermission: false
 GroupRoleSynchronizationPrimaryGroupOnly: false
 GroupRoleSynchronizationOnLink: true
 GroupRoleSynchronizationCycleTime: 5
+GroupRoleSynchronizationCycleCompletely: false
 
 # Ban synchronization
 # When a player gets banned on the server when they have a linked Discord account you can optionally ban them on the Discord server and vice versa

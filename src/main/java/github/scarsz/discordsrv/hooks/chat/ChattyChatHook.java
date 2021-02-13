@@ -1,19 +1,23 @@
-/*
- * DiscordSRV - A Minecraft to Discord and back link plugin
- * Copyright (C) 2016-2020 Austin "Scarsz" Shapiro
- *
+/*-
+ * LICENSE
+ * DiscordSRV
+ * -------------
+ * Copyright (C) 2016 - 2021 Austin "Scarsz" Shapiro
+ * -------------
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
+ * END
  */
 
 package github.scarsz.discordsrv.hooks.chat;
@@ -71,8 +75,7 @@ public class ChattyChatHook implements ChatHook {
         try {
             return (ChattyApi) chatty.getClass().getMethod("api").invoke(chatty);
         } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            DiscordSRV.error("Unable to get Chatty plugin");
-            e.printStackTrace();
+            DiscordSRV.error("Unable to get Chatty plugin", e);
             return null;
         }
     }
@@ -80,5 +83,18 @@ public class ChattyChatHook implements ChatHook {
     @Override
     public Plugin getPlugin() {
         return PluginUtil.getPlugin("Chatty");
+    }
+
+    @Override
+    public boolean isEnabled() {
+        boolean regular = getPlugin() != null && getPlugin().isEnabled() && PluginUtil.pluginHookIsEnabled(getPlugin().getName());
+        if (!regular) return false;
+
+        try {
+            Class.forName("ru.mrbrikster.chatty.api.ChattyApi");
+        } catch (ClassNotFoundException ignore) {
+            return false;
+        }
+        return true;
     }
 }

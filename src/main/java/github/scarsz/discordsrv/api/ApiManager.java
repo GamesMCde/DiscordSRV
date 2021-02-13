@@ -1,19 +1,23 @@
-/*
- * DiscordSRV - A Minecraft to Discord and back link plugin
- * Copyright (C) 2016-2020 Austin "Scarsz" Shapiro
- *
+/*-
+ * LICENSE
+ * DiscordSRV
+ * -------------
+ * Copyright (C) 2016 - 2021 Austin "Scarsz" Shapiro
+ * -------------
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
+ * END
  */
 
 package github.scarsz.discordsrv.api;
@@ -24,7 +28,6 @@ import github.scarsz.discordsrv.api.events.Event;
 import github.scarsz.discordsrv.util.LangUtil;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.cache.CacheFlag;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
@@ -83,7 +86,7 @@ public class ApiManager {
         // ensure at least one method available in given object that is annotated with Subscribe
         int methodsAnnotatedSubscribe = 0;
         for (Method method : listener.getClass().getMethods()) if (method.isAnnotationPresent(Subscribe.class)) methodsAnnotatedSubscribe++;
-        if (methodsAnnotatedSubscribe == 0) throw new RuntimeException(listener.getClass().getName() + " attempted DiscordSRV API registration but no methods inside of it were annotated @Subscribe (github.scarsz.discordsrv.api.Subscribe)");
+        if (methodsAnnotatedSubscribe == 0) throw new RuntimeException(listener.getClass().getName() + " attempted DiscordSRV API registration but no public methods inside of it were annotated @Subscribe (github.scarsz.discordsrv.api.Subscribe)");
 
         DiscordSRV.info(LangUtil.InternalMessage.API_LISTENER_SUBSCRIBED.toString()
                 .replace("{listenername}", listener.getClass().getName())
@@ -130,14 +133,17 @@ public class ApiManager {
                         try {
                             method.invoke(apiListener, event);
                         } catch (InvocationTargetException e) {
-                            DiscordSRV.error((LangUtil.InternalMessage.API_LISTENER_THREW_ERROR + ":\n" + ExceptionUtils.getStackTrace(e))
-                                    .replace("{listenername}", apiListener.getClass().getName())
-                            );
+                            DiscordSRV.error(
+                                    LangUtil.InternalMessage.API_LISTENER_THREW_ERROR.toString()
+                                            .replace("{listenername}", apiListener.getClass().getName()),
+                                    e.getCause());
                         } catch (IllegalAccessException e) {
                             // this should never happen
-                            DiscordSRV.error((LangUtil.InternalMessage.API_LISTENER_METHOD_NOT_ACCESSIBLE + ":\n" + ExceptionUtils.getStackTrace(e))
-                                    .replace("{listenername}", apiListener.getClass().getName())
-                                    .replace("{methodname}", method.toString())
+                            DiscordSRV.error(
+                                    LangUtil.InternalMessage.API_LISTENER_METHOD_NOT_ACCESSIBLE.toString()
+                                            .replace("{listenername}", apiListener.getClass().getName())
+                                            .replace("{methodname}", method.toString()),
+                                    e
                             );
                         }
                     }
@@ -155,8 +161,11 @@ public class ApiManager {
      *
      * <br/><br/>
      * Please not that DiscordSRV already uses some intents by default: {@link ApiManager#intents}.
+     *
+     * @throws IllegalStateException if this is executed after JDA was already initialized
      */
     public void requireIntent(GatewayIntent gatewayIntent) {
+        if (DiscordSRV.getPlugin().getJda() != null) throw new IllegalStateException("Intents must be required before JDA initializes");
         intents.add(gatewayIntent);
     }
 
@@ -167,8 +176,11 @@ public class ApiManager {
      *
      * <br/><br/>
      * Please note that DiscordSRV already uses some caches by default: {@link ApiManager#cacheFlags}.
+     *
+     * @throws IllegalStateException if this is executed after JDA was already initialized
      */
     public void requireCacheFlag(CacheFlag cacheFlag) {
+        if (DiscordSRV.getPlugin().getJda() != null) throw new IllegalStateException("Cache flags must be required before JDA initializes");
         cacheFlags.add(cacheFlag);
     }
 

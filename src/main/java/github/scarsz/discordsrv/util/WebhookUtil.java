@@ -1,19 +1,23 @@
-/*
- * DiscordSRV - A Minecraft to Discord and back link plugin
- * Copyright (C) 2016-2020 Austin "Scarsz" Shapiro
- *
+/*-
+ * LICENSE
+ * DiscordSRV
+ * -------------
+ * Copyright (C) 2016 - 2021 Austin "Scarsz" Shapiro
+ * -------------
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
+ * END
  */
 
 package github.scarsz.discordsrv.util;
@@ -22,16 +26,14 @@ import com.github.kevinsawicki.http.HttpRequest;
 import github.scarsz.discordsrv.DiscordSRV;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.requests.restaction.MessageAction;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -56,9 +58,7 @@ public class WebhookUtil {
             }
         } catch (Exception e) {
             DiscordSRV.warning("Failed to purge already existing webhooks: " + e.getMessage());
-            if (DiscordSRV.config().getInt("DebugLevel") > 0) {
-                e.printStackTrace();
-            }
+            if (DiscordSRV.config().getInt("DebugLevel") > 0) DiscordSRV.error(e);
         }
     }
 
@@ -68,9 +68,7 @@ public class WebhookUtil {
 
     public static void deliverMessage(TextChannel channel, Player player, String message, MessageEmbed embed) {
         Bukkit.getScheduler().runTaskAsynchronously(DiscordSRV.getPlugin(), () -> {
-            String avatarUrl = DiscordSRV.config().getString("Experiment_EmbedAvatarUrl");
-            avatarUrl = PlaceholderUtil.replacePlaceholders(avatarUrl, player);
-
+            String avatarUrl = DiscordSRV.getAvatarUrl(player);
             String username = DiscordSRV.config().getString("Experiment_WebhookChatMessageUsernameFormat")
                     .replace("%displayname%", DiscordUtil.strip(player.getDisplayName()))
                     .replace("%username%", player.getName());
@@ -88,14 +86,6 @@ public class WebhookUtil {
                 }
             }
 
-            if (StringUtils.isBlank(avatarUrl)) avatarUrl = "https://minotar.net/helm/{uuid-nodashes}/{size}";
-            avatarUrl = avatarUrl
-                    .replace("{timestamp}", String.valueOf(System.currentTimeMillis() / 1000))
-                    .replace("{username}", player.getName())
-                    .replace("{uuid}", player.getUniqueId().toString())
-                    .replace("{uuid-nodashes}", player.getUniqueId().toString().replace("-", ""))
-                    .replace("{size}", "128");
-
             deliverMessage(channel, username, avatarUrl, message, embed);
         });
     }
@@ -104,7 +94,7 @@ public class WebhookUtil {
         deliverMessage(channel, webhookName, webhookAvatarUrl, message, embed, true);
     }
 
-    public static void deliverMessage(TextChannel channel, String webhookName, String webhookAvatarUrl, String message, MessageEmbed embed, boolean allowSecondAttempt) {
+    private static void deliverMessage(TextChannel channel, String webhookName, String webhookAvatarUrl, String message, MessageEmbed embed, boolean allowSecondAttempt) {
         if (channel == null) return;
 
         String webhookUrl = getWebhookUrlToUseForChannel(channel, webhookName);
@@ -113,7 +103,8 @@ public class WebhookUtil {
         Bukkit.getScheduler().runTaskAsynchronously(DiscordSRV.getPlugin(), () -> {
             try {
                 JSONObject jsonObject = new JSONObject();
-                jsonObject.put("username", webhookName);
+                // workaround for a Discord block for using 'Clyde' in usernames
+                jsonObject.put("username", webhookName.replaceAll("(?:(?i)c)l(?:(?i)yde)", "$1I$2").replaceAll("(?i)(clyd)e", "$13"));
                 jsonObject.put("avatar_url", webhookAvatarUrl);
 
                 if (StringUtils.isNotBlank(message)) jsonObject.put("content", message);
@@ -123,6 +114,14 @@ public class WebhookUtil {
                     jsonObject.put("embeds", jsonArray);
                 }
 
+                JSONObject allowedMentions = new JSONObject();
+                Set<String> parse = MessageAction.getDefaultMentions().stream()
+                        .filter(Objects::nonNull)
+                        .map(Message.MentionType::getParseKey)
+                        .collect(Collectors.toSet());
+                allowedMentions.put("parse", parse);
+                jsonObject.put("allowed_mentions", allowedMentions);
+
                 HttpRequest request = HttpRequest.post(webhookUrl)
                         .header("Content-Type", "application/json")
                         .userAgent("DiscordSRV/" + DiscordSRV.getPlugin().getDescription().getVersion())
@@ -131,13 +130,13 @@ public class WebhookUtil {
                 int status = request.code();
                 if (status == 404) {
                     // 404 = Invalid Webhook (most likely to have been deleted)
-                    DiscordSRV.debug("Webhook delivery returned 404, marking webhooks url's as invalid to let them regenerate" + (allowSecondAttempt ? " & trying again" : ""));
+                    DiscordSRV.debug("Webhook delivery returned 404, marking webhooks URLs as invalid to let them regenerate" + (allowSecondAttempt ? " & trying again" : ""));
                     invalidWebhookUrlForChannel(channel); // tell it to get rid of the urls & get new ones
                     if (allowSecondAttempt) deliverMessage(channel, webhookName, webhookAvatarUrl, message, embed, false);
                     return;
                 }
+                String body = request.body();
                 try {
-                    String body = request.body();
                     JSONObject jsonObj = new JSONObject(body);
                     if (jsonObj.has("code")) {
                         // 10015 = unknown webhook, https://discord.com/developers/docs/topics/opcodes-and-status-codes#json-json-error-codes
@@ -149,11 +148,14 @@ public class WebhookUtil {
                         }
                     }
                 } catch (Throwable ignored) {}
-                DiscordSRV.debug("Received API response for webhook message delivery: " + request.code());
+                if (status == 204) {
+                    DiscordSRV.debug("Received API response for webhook message delivery: " + status);
+                } else {
+                    DiscordSRV.debug("Received unexpected API response for webhook message delivery: " + status + " for request: " + jsonObject.toString() + ", response: " + body);
+                }
             } catch (Exception e) {
                 DiscordSRV.error("Failed to deliver webhook message to Discord: " + e.getMessage());
-                DiscordSRV.debug(ExceptionUtils.getMessage(e));
-                e.printStackTrace();
+                DiscordSRV.debug(e);
             }
         });
     }

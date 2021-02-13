@@ -1,19 +1,23 @@
-/*
- * DiscordSRV - A Minecraft to Discord and back link plugin
- * Copyright (C) 2016-2020 Austin "Scarsz" Shapiro
- *
+/*-
+ * LICENSE
+ * DiscordSRV
+ * -------------
+ * Copyright (C) 2016 - 2021 Austin "Scarsz" Shapiro
+ * -------------
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
+ * END
  */
 
 package github.scarsz.discordsrv.listeners;
@@ -57,6 +61,10 @@ public class PlayerAdvancementDoneListener implements Listener {
         // respect invisibility plugins
         if (PlayerUtil.isVanished(event.getPlayer())) return;
 
+        Bukkit.getScheduler().runTaskAsynchronously(DiscordSRV.getPlugin(), () -> runAsync(event));
+    }
+
+    private void runAsync(PlayerAdvancementDoneEvent event) {
         try {
             Object craftAdvancement = ((Object) event.getAdvancement()).getClass().getMethod("getHandle").invoke(event.getAdvancement());
             Object advancementDisplay = craftAdvancement.getClass().getMethod("c").invoke(craftAdvancement);
@@ -65,7 +73,7 @@ public class PlayerAdvancementDoneListener implements Listener {
         } catch (NullPointerException e) {
             return;
         } catch (Exception e) {
-            e.printStackTrace();
+            DiscordSRV.error(e);
             return;
         }
 
@@ -92,7 +100,7 @@ public class PlayerAdvancementDoneListener implements Listener {
         if (messageFormat == null) return;
 
         String finalAchievementName = StringUtils.isNotBlank(advancementTitle) ? advancementTitle : "";
-        String avatarUrl = DiscordSRV.getPlugin().getEmbedAvatarUrl(player);
+        String avatarUrl = DiscordSRV.getAvatarUrl(player);
         String botAvatarUrl = DiscordUtil.getJda().getSelfUser().getEffectiveAvatarUrl();
         String botName = DiscordSRV.getPlugin().getMainGuild() != null ? DiscordSRV.getPlugin().getMainGuild().getSelfMember().getEffectiveName() : DiscordUtil.getJda().getSelfUser().getName();
         String displayName = StringUtils.isNotBlank(player.getDisplayName()) ? DiscordUtil.strip(player.getDisplayName()) : "";
@@ -115,7 +123,7 @@ public class PlayerAdvancementDoneListener implements Listener {
             content = PlaceholderUtil.replacePlaceholdersToDiscord(content, player);
             return content;
         };
-        Message discordMessage = DiscordSRV.getPlugin().translateMessage(messageFormat, translator);
+        Message discordMessage = DiscordSRV.translateMessage(messageFormat, translator);
         if (discordMessage == null) return;
 
         String webhookName = translator.apply(messageFormat.getWebhookName(), false);
@@ -131,11 +139,11 @@ public class PlayerAdvancementDoneListener implements Listener {
         discordMessage = postEvent.getDiscordMessage();
 
         TextChannel textChannel = DiscordSRV.getPlugin().getDestinationTextChannelForGameChannelName(channelName);
-        if (messageFormat.isUseWebhooks()) {
+        if (postEvent.isUsingWebhooks()) {
             WebhookUtil.deliverMessage(textChannel, postEvent.getWebhookName(), postEvent.getWebhookAvatarUrl(),
                     discordMessage.getContentRaw(), discordMessage.getEmbeds().stream().findFirst().orElse(null));
         } else {
-            DiscordUtil.queueMessage(textChannel, discordMessage);
+            DiscordUtil.queueMessage(textChannel, discordMessage, true);
         }
     }
 
@@ -150,6 +158,17 @@ public class PlayerAdvancementDoneListener implements Listener {
                         .findFirst().orElseThrow(() -> new RuntimeException("Failed to find AdvancementDisplay getter for advancement handle"))
                         .invoke(handle);
                 if (advancementDisplay == null) throw new RuntimeException("Advancement doesn't have display properties");
+
+                try {
+                    Field advancementMessageField = advancementDisplay.getClass().getDeclaredField("a");
+                    advancementMessageField.setAccessible(true);
+                    Object advancementMessage = advancementMessageField.get(advancementDisplay);
+                    Object advancementTitle = advancementMessage.getClass().getMethod("getString").invoke(advancementMessage);
+                    return (String) advancementTitle;
+                } catch (Exception e){
+                    DiscordSRV.debug("Failed to get title of advancement using getString, trying JSON method");
+                }
+
                 Field titleComponentField = Arrays.stream(advancementDisplay.getClass().getDeclaredFields())
                         .filter(field -> field.getType().getSimpleName().equals("IChatBaseComponent"))
                         .findFirst().orElseThrow(() -> new RuntimeException("Failed to find advancement display properties field"));

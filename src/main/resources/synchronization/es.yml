@@ -20,19 +20,25 @@ NicknameSynchronizationFormat: "%displayname%"
 #                                               {"MC_GROUP_NAME": "DISCORD_ROLE_ID"} es el formato que debe seguir al agregar más pares de grupo / rol
 #                                               para obtener los ID de rol de tu Discord, ejecuta "/discord debug" y mira la primera sección
 # GroupRoleSynchronizationMinecraftIsAuthoritative: si los cambios de grupo de Minecraft anulan o no los cambios de rol de Discord
+# GroupRoleSynchronizationOneWay: whether or not to synchronise only one way, the way it is synchronised depends on the value
+#                                 of GroupRoleSynchronizationMinecraftIsAuthoritative.
 # GroupRoleSynchronizationEnableDenyPermission: si los permisos discordsrv.sync.deny.<grupo> están habilitados
 # GroupRoleSynchronizationPrimaryGroupOnly: si es verdadero, solo el grupo primario del jugador se cuenta para la sincronización,
 #                                           de lo contrario, la sincronización de grupos cuenta todos los grupos en los
 #                                           que se encuentra el jugador, incluidos los grupos parentales
 # GroupRoleSynchronizationOnLink: si se vuelve a sincronizar cuando un jugador se vincula
 # GroupRoleSynchronizationCycleTime: cantidad de minutos entre activación de sincronización repetida para todos los jugadores en línea
+# GroupRoleSynchronizationCycleCompletely: si las sincronizaciones que se ejecutan en un temporizador deberían sincronizar
+#                                          a cada miembro en los servidores de bots Discord
 #
 GroupRoleSynchronizationGroupsAndRolesToSync: {"trusted": "000000000000000000", "vip": "000000000000000000"}
 GroupRoleSynchronizationMinecraftIsAuthoritative: true
+GroupRoleSynchronizationOneWay: false
 GroupRoleSynchronizationEnableDenyPermission: false
 GroupRoleSynchronizationPrimaryGroupOnly: false
 GroupRoleSynchronizationOnLink: true
 GroupRoleSynchronizationCycleTime: 5
+GroupRoleSynchronizationCycleCompletely: false
 
 # Sincronización de baneos
 # Cuando un jugador es baneado en el servidor y cuando tiene una cuenta de Discord vinculada, puede opcionalmente banearlo en el servidor de Discord y viceversa.

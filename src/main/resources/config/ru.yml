@@ -41,6 +41,7 @@ DebugJDARestActions: false
 CancelConsoleCommandIfLoggingFailed: true
 RespectChatPlugins: true
 ForcedLanguage: none
+AvatarUrl: https://crafatar.com/avatars/{uuid-nodashes}.png?size={size}&overlay#{texture}
 Experiment_JdbcAccountLinkBackend: "jdbc:mysql://HOST:PORT/DATABASE?autoReconnect=true&useSSL=false"
 Experiment_JdbcTablePrefix: "discordsrv"
 Experiment_JdbcUsername: "username"
@@ -48,8 +49,6 @@ Experiment_JdbcPassword: "password"
 Experiment_WebhookChatMessageDelivery: false
 Experiment_WebhookChatMessageUsernameFormat: "%displayname%"
 Experiment_WebhookChatMessageUsernameFromDiscord: false
-Experiment_EmbedAvatarUrl: https://minotar.net/helm/{uuid-nodashes}/{size}
-#Experiment_EmbedAvatarUrl: https://minotar.net/helm/{username}
 Experiment_WebhookChatMessageAvatarFromDiscord: false
 Experiment_MCDiscordReserializer_ToDiscord: false
 Experiment_MCDiscordReserializer_ToMinecraft: false
@@ -65,8 +64,10 @@ MaximumAttemptsForSystemDNSBeforeUsingFallbackDNS: 3
 #
 # DisabledPluginHooks: отключить модули (обычно это названия плагинов)
 # VentureChatBungee: включает BungeeCord-функционал модуля VentureChat (сообщения принимаются с каждого сервера, требуется, чтобы по крайней мере 1 игрок был в сети)
+# EnablePresenceInformation: enabled presence information, which is required for some of our PlaceholderAPI placeholders. Keep in mind this requires the "Presence Intent" from the Discord developer portal
 DisabledPluginHooks: []
 VentureChatBungee: false
+EnablePresenceInformation: false
 
 # Информация в статусе бота в Discord
 # Устанавливает боту индикатор "Играет в: ______".
@@ -87,6 +88,7 @@ StatusUpdateRateInMinutes: 2
 # DiscordChatChannelMinecraftToDiscord: отправлять или не отправлять сообщения из чата Minecraft в канал чата (Minecraft -> Discord)
 # DiscordChatChannelTruncateLength: максимальная длина сообщений из Discord для отправки в чат Minecraft
 # DiscordChatChannelTranslateMentions: переводить или не переводить упоминания такие как @Person для сообщений Minecraft в Discord
+# DiscordChatChannelAllowedMentions: типы упоминаний, разрешенные в сообщениях Minecraft to Discord; типы, отсутствующие в значении по умолчанию: "роль", "здесь" и "все"
 # DiscordChatChannelPrefixRequiredToProcessMessage: символ(ы), необходимые как префикс сообщений для их отправки из Minecraft в Discord (например, «!»)
 # DiscordChatChannelRolesAllowedToUseColorCodesInChat: список ролей, которым разрешено использовать цвета/форматирование в чате Discord в Minecraft
 # DiscordChatChannelBroadcastDiscordMessagesToConsole: выводить или нет обработанные Discord сообщения в игровую консоль
@@ -101,6 +103,7 @@ DiscordChatChannelDiscordToMinecraft: true
 DiscordChatChannelMinecraftToDiscord: true
 DiscordChatChannelTruncateLength: 256
 DiscordChatChannelTranslateMentions: true
+DiscordChatChannelAllowedMentions: [user, channel, emote]
 DiscordChatChannelPrefixRequiredToProcessMessage: ""
 DiscordChatChannelRolesAllowedToUseColorCodesInChat: ["Developer", "Owner", "Admin", "Moderator"]
 DiscordChatChannelBroadcastDiscordMessagesToConsole: true
@@ -146,21 +149,17 @@ DiscordChatChannelRolesSelection: ["Don't show me!", "Misc role"]
 #    PlaceholderAPI заполнители поддерживаются
 # DiscordConsoleChannelBlacklistActsAsWhitelist: инвертировать ли "чёрный" список команд, превращая его в "белый"
 # DiscordConsoleChannelBlacklistedCommands: фразы, заключенные в кавычки, которые пользователи не могут отправлять в виде команд в консоль
-# DiscordConsoleChannelDoNotSendPhrasesActsAsWhitelist: инвертировать ли фразы, запрещённые к отправке, в белый список разрешённых фраз
-# DiscordConsoleChannelDoNotSendPhrases: фразы, заключённые в кавычки, которые не должны отправляться на консольный канал
-# DiscordConsoleChannelRegexFilter: фильтр регулярных выражений, который будет применяться к сообщениям консоли перед отправкой в Discord
-# DiscordConsoleChannelRegexReplacement: то, на что будет заменены сообщения при срабатывании фильтра
+# DiscordConsoleChannelFilters: фильтры регулярных выражений, которые будут применяться к консольным строкам, отправляемым в Discord, если результат пуст, сообщение не будет отправлено вообще
 # DiscordConsoleChannelLevels: типы логов, которые отправляются в консольный канал
+# DiscordConsoleChannelAllowPluginUpload: должен загружать плагины в канал консоли, добавлять их на сервер автоматически
 #
 DiscordConsoleChannelLogRefreshRateInSeconds: 5
 DiscordConsoleChannelUsageLog: "Console-%date%.log"
 DiscordConsoleChannelBlacklistActsAsWhitelist: false
 DiscordConsoleChannelBlacklistedCommands: ["?", "op", "deop", "execute"]
-DiscordConsoleChannelDoNotSendPhrasesActsAsWhitelist: false
-DiscordConsoleChannelDoNotSendPhrases: ["async chat thread"]
-DiscordConsoleChannelRegexFilter: ""
-DiscordConsoleChannelRegexReplacement: ""
+DiscordConsoleChannelFilters: {".*(?i)async chat thread.*": "", ".*There are \\d+ of a max of \\d+ players online.*": ""}
 DiscordConsoleChannelLevels: [info, warn, error]
+DiscordConsoleChannelAllowPluginUpload: false
 
 # Настройка выполнения команд в канале чата
 # Эти опции позволяют настроить выполнение определённых команды на серверной консоли
@@ -201,15 +200,11 @@ DiscordChatChannelListCommandExpirationDeleteRequest: true
 
 # Чёрный список фраз и регулярных выражений для канала чата
 #
-# DiscordChatChannelBlockedPhrases: фразы, отправленные в канал чата, которые не будут выводиться
-# DiscordChatChannelCutPhrases: фразы, отправленные в чате Minecraft, которые не будут выводиться
-# DiscordChatChannelRegex: регулярное выражение, чтобы отфильтровать чат Minecraft в Discord
-# DiscordChatChannelRegexReplacement: замена для опции выше
+# DiscordChatChannelGameFilters: фильтры регулярных выражений, которые будут применяться к сообщениям чата, отправляемым в Discord, если результат пуст, сообщение не будет отправлено вообще
+# DiscordChatChannelDiscordFilters: фильтры регулярных выражений, которые будут применяться к сообщениям чата, отправляемым в Minecraft, если результат пуст, сообщение не будет отправлено вообще
 #
-DiscordChatChannelBlockedPhrases: ["Online players (", "**No online players**"]
-DiscordChatChannelCutPhrases: ["@everyone", "@here"]
-DiscordChatChannelRegex: ""
-DiscordChatChannelRegexReplacement: ""
+DiscordChatChannelGameFilters: {}
+DiscordChatChannelDiscordFilters: {".*Online players\\(.*": "", ".*\\*\\*No online players\\*\\*.*": ""}
 
 # Настройки обновления темы канала
 #
@@ -243,7 +238,7 @@ DiscordCannedResponses: {"!ip": "yourserveripchange.me", "!site": "http://yoursi
 # %discordname%:         привязанный ник аакаунта Discord
 #                         пример: Notch
 #
-# MinecraftDiscordAccountLinkedRoleToAddUserTo: имя Discord роли, в которую будут добавлены пользователи, после того как привяжут свои аккаунты
+# MinecraftDiscordAccountLinkedRoleNameToAddUserTo: имя Discord роли, в которую будут добавлены пользователи, после того как привяжут свои аккаунты
 # MinecraftDiscordAccountLinkedAllowRelinkBySendingANewCode: можно ли отправить новый код боту, чтобы перепривязать аккаунт
 #
 MinecraftDiscordAccountLinkedConsoleCommands: ["", "", ""]

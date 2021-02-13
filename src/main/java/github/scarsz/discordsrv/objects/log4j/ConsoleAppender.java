@@ -1,19 +1,23 @@
-/*
- * DiscordSRV - A Minecraft to Discord and back link plugin
- * Copyright (C) 2016-2020 Austin "Scarsz" Shapiro
- *
+/*-
+ * LICENSE
+ * DiscordSRV
+ * -------------
+ * Copyright (C) 2016 - 2021 Austin "Scarsz" Shapiro
+ * -------------
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
+ * END
  */
 
 package github.scarsz.discordsrv.objects.log4j;
@@ -33,7 +37,8 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 @Plugin(name = "DiscordSRV-ConsoleChannel", category = "Core", elementType = "appender", printObject = true)
 public class ConsoleAppender extends AbstractAppender {
@@ -62,8 +67,7 @@ public class ConsoleAppender extends AbstractAppender {
             try {
                 createdLayout = (PatternLayout) createLayoutMethod.invoke(null, args);
             } catch (IllegalAccessException | InvocationTargetException e) {
-                DiscordSRV.error("Failed to reflectively invoke the Log4j createLayout method. The console appender is not going to function.");
-                e.printStackTrace();
+                DiscordSRV.error("Failed to reflectively invoke the Log4j createLayout method. The console appender is not going to function.", e);
             }
             PATTERN_LAYOUT = createdLayout;
         }
@@ -90,7 +94,7 @@ public class ConsoleAppender extends AbstractAppender {
     public void append(LogEvent event) {
         final DiscordSRV plugin = DiscordSRV.getPlugin();
 
-        // return if console channel isn't available
+        // return if console channel isn't available / is disabled
         if (plugin.getConsoleChannel() == null) return;
 
         final DynamicConfig config = DiscordSRV.config();
@@ -110,44 +114,26 @@ public class ConsoleAppender extends AbstractAppender {
 
         // remove coloring
         line = DiscordUtil.aggressiveStrip(line);
+        line = DiscordUtil.strip(line);
 
         // do nothing if line is blank before parsing
         if (StringUtils.isBlank(line)) return;
 
         // apply regex to line
-        line = applyRegex(config, line);
-
-        // do nothing if line is blank after parsing
-        if (StringUtils.isBlank(line)) return;
+        for (Map.Entry<Pattern, String> entry : plugin.getConsoleRegexes().entrySet()) {
+            line = entry.getKey().matcher(line).replaceAll(entry.getValue());
+            if (StringUtils.isBlank(line)) return;
+        }
 
         // escape markdown
         line = DiscordUtil.escapeMarkdown(line);
 
-        // if line contains a blocked phrase don't send it
-        boolean whitelist = config.getBoolean("DiscordConsoleChannelDoNotSendPhrasesActsAsWhitelist");
-        List<String> phrases = config.getStringList("DiscordConsoleChannelDoNotSendPhrases");
-        boolean match = false;
-        for (String phrase : phrases) {
-            boolean contained = StringUtils.containsIgnoreCase(line, phrase);
-            if (contained) {
-                match = true;
-                break;
-            }
-        }
-        if (whitelist != match) return;
+        // trim
+        line = line.trim();
 
         // queue final message
         plugin.getConsoleMessageQueue()
-                .add(new ConsoleMessage(TimeUtil.timeStamp(), eventLevel, line.trim()));
-    }
-
-    private String applyRegex(DynamicConfig config, String input) {
-        String regexFilter = config.getString("DiscordConsoleChannelRegexFilter");
-        if (StringUtils.isNotBlank(regexFilter)) {
-            return input.replaceAll(regexFilter, config.getString("DiscordConsoleChannelRegexReplacement"));
-        } else {
-            return input;
-        }
+                .add(new ConsoleMessage(TimeUtil.timeStamp(), eventLevel, line));
     }
 
 }
